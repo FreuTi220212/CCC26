@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.zip
+# Level-Daten (Inputs, Outputs, PDFs, Seitenbilder) sind per Download reproduzierbar und teils mehrere MB gross
+*/level[0-9]*/
