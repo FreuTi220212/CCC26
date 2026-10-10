@@ -1,27 +1,26 @@
-# Classic-Spaceship (CCC 2025.11 Classic, in Arbeit)
+# Classic-Spaceship (CCC 2025.11 Classic, Level 1-8, abgeschlossen)
 
-Allgemeine Regeln: ../CLAUDE.md. Hier nur Spielregeln, Input-Struktur je Level und Log.
+Allgemeine Regeln: ../CLAUDE.md. Hier nur Spielregeln, Input je Level, Fehler/Zeitfresser. Pro Level: Beispiel + small + large.
 
 ## Regeln und Input-Struktur
-- Raumschiff, eindimensional. Pace = Zeit pro Streckeneinheit: `p>0` -> +1 Weg in Zeit p, `p<0` -> -1 Weg in Zeit |p|, `0` -> kein Weg, 1 Zeit.
-- Level 1: `N`, N Zeilen mit positiven Paces -> Gesamtzeit (Summe) je Zeile.
-- Level 2: Paces auch 0 und negativ -> `Endposition Zeit` je Zeile (Start bei 0).
-- Level 3: `N`, je Zeile `Position Zeitlimit` -> Pace-Folge, die Position exakt erreicht, Zeit <= Limit. Folge beginnt und endet mit 0,
-  Paces nur schrittweise änderbar in der Reihenfolge -1 -2 -3 -4 -5 0 5 4 3 2 1 (Nachbarn oder gleich). Mehrere Lösungen -> `validate`.
-  Lösung: 0, Rampe 5,4,..,peak, Reise mit peak, Rampe zurück, 0 (peak 1..5, schnellste Variante); Vorzeichen für negative Ziele.
-- Level 4: 2D, `N`, je Zeile `x,y limit` -> je Fall zwei Folgen (X, dann Y), Leerzeile zwischen Fällen empfohlen. Beide Folgen innerhalb Limit = Optimum je Achse. Dijkstra über (Position, Pace) mit Nachbarschaft wie in Level 3; Ziel 0 -> Folge `0`. Validator prüft Pace-Wechsel, Position, Zeit.
-- Level 5: je Fall `x,y limit` + Zeile `ax,ay` (1 ruhender Asteroid). Kollision = Chebyshev-Abstand Schiff-Asteroid <= 2 (5x5-Quadrat, auf PDF-Seite 3 als Bild). Beide Achsenfolgen laufen parallel in der Zeit; Lösung fährt Achsen nacheinander (die andere wartet mit Nullen gleicher Dauer), Weg erst als L-Weg, bei Blockade Dijkstra auf dem Gitter mit Abbiege-Strafe. Segmente mit der Level-4-Optimalfolge. Validator prüft Kollision für Sprung am Pace-Anfang UND -Ende.
-- Level 6: Format wie 5, aber Limit deutlich kürzer (nicht optimal, aber ~Optimum+Umweg). Beide Achsen GLEICHZEITIG fahren. Reihenfolge der Strategien (erste gültige mit Zeit <= Limit gewinnt): (1) Optimalfolgen parallel, eine Achse mit Startverzögerung; (2) Abstecher: eine Achse unverändert, die andere fährt seitlich um den Sicherheitsbereich (Offset ±3/±4), wartet h Ticks, fährt zum Ziel; (3) Wegpunkte (1, dann 2) mit parallelen Teilstücken + Verzögerungssuche; (4) sequentieller Umweg aus L5. `collision_free(…, start)` mit Startoffset.
-- Level 7: mehrere Asteroiden (Zeile `x,y limit`, Zeile `k`, Zeile mit k Asteroiden), Limit knapp, large 19 MB (500 Fälle x 5000 Asteroiden, ~20 % gesperrt, labyrinthartig). Lösung: `Planner.java` (JDK 21 ist installiert, `level7.py` kompiliert/ruft es auf, `CCC_THREADS` = Threads):
-  gewichtetes A* über den vollen Zustand (x, y, Pace-Eintrag-Zustand je Achse: Betrag, Phase, Richtung = 31 Zustände), 1 Tick pro Schritt, Heuristik = Zugzahl per BFS auf der Sperrkarte (8 Nachbarn OHNE Eckenprüfung, sonst unzulässig), Gewichtsstufen 1.5, 2.5, 4, 1.25, 1.0 und Fenster-Margins 30/70/150; Zustände mit g + BFS > Limit werden verworfen.
-  **Plattform-Konvention (per Test bestätigt): die Position ändert sich erst am ENDE der Pace-Dauer** (Sprung am Ende). Die strengere "Sprung am Anfang"-Prüfung ließ Fälle am Limit scheitern. Kollision = Chebyshev-Abstand <= 2 zum Asteroiden.
-  Python-Alternativen (Zeit-DP über Hauptachse, Segmente + A*, Beam) kamen auf höchstens 18/20 (small) und waren zu langsam/schwach; sie wurden entfernt.- Level 8: Asteroiden bewegen sich mit konstanter Pace je Achse (`ax,ay,px,py`, Pace 0 = steht, Vorzeichen = Richtung). Asteroid zum Tick t = x0 + vorzeichen * ((t+1) // |pace|) (gleiche "Sprung am Ende"-Konvention wie das Schiff; an den Beispiel-Lösungen verifiziert: nur diese Kombination ist kollisionsfrei). Lösung `Planner8.java`: zeitexpandiertes gewichtetes A* über (Tick, x, y, Zustand X, Zustand Y), Sperrkarte je Tick als Bitmaske, Heuristik Chebyshev, Gewichte 1.5/2.5/4/1.25/1.0, Fenster-Margin 20/45. Level 7-Konvention gilt.
+- Raumschiff in 1D/2D, Achsen unabhängig. Pace p>0: +1 Weg in Zeit p; p<0: -1 Weg in |p|; 0: kein Weg, Zeit 1.
+- Pace-Folge beginnt und endet mit 0; Pace darf nur zu einem Nachbarn (oder gleich) wechseln in der Reihenfolge `-1 -2 -3 -4 -5 0 5 4 3 2 1`.
+- **Zeitkonvention (per Plattformtest bestätigt): die Position ändert sich erst am ENDE der Pace-Dauer.** Gilt auch für Asteroiden (L8).
+- Kollision = Chebyshev-Abstand <= 2 zwischen Schiff und Asteroid (5x5-Quadrat; steht nur als Bild auf PDF-Seite 3 von L5).
+- L1: Summe der Paces je Zeile. L2: `Endposition Zeit`, Paces auch 0/negativ.
+- L3: `Position Limit` -> Folge mit exakter Position und Zeit <= Limit (Limit großzügig; Rampe 5,4,..,peak, Reise, zurück; PDF-Text teils verschlüsselt).
+- L4: 2D, `x,y limit` -> X-Folge und Y-Folge, beide <= Limit = Optimum je Achse: Dijkstra über (Position, Pace). Ziel 0 -> Folge `0`.
+- L5: 1 ruhender Asteroid (`ax,ay`). Achsen nacheinander fahren (andere wartet mit Nullen), L-Weg, sonst Gitter-Dijkstra.
+- L6: Limit knapp: Achsen parallel, Startverzögerung, Abstecher, Wegpunkte.
+- L7: viele Asteroiden (5000, ~20 % gesperrt, labyrinthartig), Limit knapp. `Planner.java`: gewichtetes A* im vollen Zustand (x, y, Pace-Zustand X/Y), BFS-Zugzahl-Heuristik.
+- L8: Asteroiden bewegen sich (`ax,ay,px,py`, Pace je Achse, 0 = steht): Position zum Tick t = x0 + vorzeichen * ((t+1) // |pace|). `Planner8.java`: Zeit im Schlüssel, Sperrkarte je Tick.
+- Ausgabe je Fall: X-Zeile, Y-Zeile, Leerzeile.
 
-## Log
-- L1, L2, L3: je 1 Versuch, Laufzeiten < 0,2 s. PDF-Text bei L3 teilweise verschlüsselt ("Zeitlimit ist großzügig") -> Bild lesen/Limits prüfen.
-- L4: 1 Versuch. Limit entspricht exakt dem Optimum (Dijkstra), Level-3-Rampenfamilie hätte vermutlich auch gereicht.
-- L5: Dijkstra pro Fall war bei N=1000 zu langsam (>60 s) -> erst L-Wege prüfen, nur bei Blockade Gitter-Dijkstra (0,35 s). Hinweis: Regeln zu Kollision standen nur im Bild.
-- L6: Sequentielle L5-Lösung war zu langsam (Limit ~Optimum). Erst parallel+Verzögerung, dann Wegpunkte, zuletzt der Abstecher (Asteroid direkt auf der Geraden, z.B. Ziel 40,0 / Asteroid 11,0) -> alle Limits ok, large ~6 s. Fehler: Tuple-Rückgabe `return sx, sy if c else None` (Operator-Vorrang).
-- L7: sehr viel Zeit (Python ~3 h, dann Java-A* in einer Stunde fertig). Gescheitert: starre Hauptachse (Level-4-Profil + Verzögerung), Beam-Suche über lange Teilstücke (Zufallsfeld ist ein Labyrinth), Gitter-A* mit Teilstücken (1,5-3x zu langsam), A* mit Wendestrafe (keine Verbesserung). Erfolg: Zeit-DP mit freier Pace der Hauptachse + Pausen. Lehre: Limit/Optimum-Verhältnis zeigt, wie nah an der Idealbahn man bleiben muss; früh die kinematische Natur (Pace-Übergänge) ins Modell nehmen. `run.py --no-validate` schreibt Outputs auch bei Validator-Fehlern (Teilpunkte).
-  Entscheidende Fehler/Funde: (1) Collisionsmodell der Plattform per Upload getestet (Sprung am Ende: small 20/20); (2) BFS-Heuristik mit Eckenprüfung war nicht zulässig und schnitt gültige Lösungen weg (Fall 15: 677 statt 441); (3) bei Suchabbruch durch Rechenlimit größere Gewichte probieren, nicht kleinere; (4) Laufzeit large ~2,5 min mit 7 Threads.
-- L8: 1 Versuch. Konvention der bewegten Asteroiden vorab an den Beispiel-Lösungen getestet (alle Varianten durchprobiert) statt zu raten; Laufzeit large 4 s.
+## Fehler und Zeitfresser (Reihenfolge nach verlorener Zeit)
+1. L7: ~3 h in Python (starre Hauptachse, Beam, Segmente + A*, Zeit-DP: 18/20 small). Danach Java-A* in 1 h: 20/20 + large. -> Zustandsraumsuche von Anfang an in Java.
+2. L7: BFS-Heuristik mit Eckenprüfung war unzulässig (schnitt Lösungen weg). Bei Rechenabbruch größere Gewichte probieren (1.5 -> 2.5 -> 4).
+3. L7: Strenge "Sprung am Anfang"-Validierung scheiterte am Limit; Ein Plattform-Upload der Variante "Sprung am Ende" klärte es (20/20).
+4. L8: Konvention der bewegten Asteroiden an den Beispiel-Lösungen aller Varianten durchprobiert: nur Schiff-Ende + Asteroid-Ende war kollisionsfrei. 1 Versuch.
+5. L6: sequentielle L5-Lösung zu langsam; paralleler Flug mit Verzögerung/Abstecher/Wegpunkten.
+6. Wiederholt: `\n` per Bash-Heredoc (SyntaxError), unzulässige Heuristik, Tuple-Vorrang (`return a, b if c else None`).
+7. Explorer wurde einmal doppelt geöffnet (Befehl zweimal ausgeführt). `open_output.ps1` prüft das jetzt.

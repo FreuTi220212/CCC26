@@ -3,11 +3,13 @@
 
   python run.py setup N <zip>   Zip nach levelN/ entpacken (flach), levelN.py anlegen (Kopie von level(N-1).py oder
                                 Template), PDF-Seiten als PNG nach levelN/pages/ (wenn pymupdf da ist), Input-Groessen zeigen
+  python run.py go [zip]        Wie setup, aber Level-Nummer aus dem Zip lesen; ohne Argument = neueste .zip in Downloads
   python run.py info N          Input-Groessen/Kopfzeilen von levelN zeigen
   python run.py N [Optionen]    Beispiel pruefen, dann alle Inputs loesen und Outputs schreiben
       --timeout S   Timeout je Datei (Standard 60)      --slow S    Warnung ab S Sekunden (Standard 10)
       --zip         zusaetzlich levelN/output.zip       --loose     Zeilenende-Leerzeichen/Leerzeilen am Ende ignorieren
       --no-validate validate() aus levelN.py nicht fuer die grossen Inputs benutzen
+      --all         auch nach einem Fehlschlag weitere Inputs rechnen (Standard: small muss 100 % ok sein, bevor large laeuft)
 
 Dateien: levelN/in_level-N_X-name.txt (Input), out_level-N_X-name.txt (Output). Beispiel = Name enthaelt 'example'.
 Hat levelN.py eine Funktion validate(input_text, output_text) -> None | Fehlertext, wird sie statt des exakten
@@ -109,6 +111,32 @@ def setup(n, zip_path):
     info(n)
 
 
+def newest_zip():
+    import glob
+    dl = os.path.join(os.path.expanduser("~"), "Downloads")
+    zips = sorted(glob.glob(os.path.join(dl, "*.zip")), key=os.path.getmtime, reverse=True)
+    if not zips:
+        sys.exit(f"Kein Zip in {dl}")
+    return zips[0]
+
+
+def level_of(zip_path):
+    import re
+    with zipfile.ZipFile(zip_path) as zf:
+        for name in zf.namelist():
+            m = re.search(r"level-?(\d+)", os.path.basename(name))
+            if m:
+                return int(m.group(1))
+    sys.exit(f"Keine Level-Nummer in {zip_path} gefunden")
+
+
+def go(zip_path=None):
+    zip_path = zip_path or newest_zip()
+    n = level_of(zip_path)
+    print(f"Zip: {zip_path} -> Level {n}")
+    setup(n, zip_path)
+
+
 # ------------------------------------------------------------------ run
 def load_validate(n):
     spec = importlib.util.spec_from_file_location(f"level{n}", sol(n))
@@ -160,7 +188,7 @@ def show_err(err):
     print("\n".join("    " + l for l in lines[-15:]))
 
 
-def run_level(n, timeout, slow, make_zip, loose, use_validate):
+def run_level(n, timeout, slow, make_zip, loose, use_validate, run_all=False):
     if not os.path.isfile(sol(n)) or not os.path.isdir(ldir(n)):
         sys.exit(f"{rel(sol(n))} oder {rel(ldir(n))}/ fehlt (python run.py setup {n} <zip>)")
     validate = load_validate(n)
@@ -202,8 +230,11 @@ def run_level(n, timeout, slow, make_zip, loose, use_validate):
     odir = os.path.join(ldir(n), "output")
     shutil.rmtree(odir, ignore_errors=True)
     os.makedirs(odir)
-    written, failed, slow_files = [], 0, []
+    written, failed, slow_files, skipped = [], 0, [], []
     for f in rest:
+        if failed and not run_all:
+            skipped.append(f)  # small muss 100 % stimmen, bevor die groesseren Inputs Zeit kosten
+            continue
         p = os.path.join(ldir(n), f)
         st, out, sec, err = run_one(n, p, timeout)
         head = f"[Input]    {f} ({size(os.path.getsize(p))}, {sec:.2f}s)"
@@ -235,6 +266,8 @@ def run_level(n, timeout, slow, make_zip, loose, use_validate):
                 z.write(w, os.path.basename(w))
     tail = f" - {rel(odir)}/" + (f" + output.zip" if make_zip and not failed else "")
     print(f"Beispiele {ok}/{len(ex)} OK - {len(written)} Outputs{tail}" + (f" - {failed} FEHLGESCHLAGEN" if failed else ""))
+    if skipped:
+        print(f"uebersprungen (erst den Fehler beheben): {', '.join(skipped)}")
     if slow_files:
         print(f"WARNUNG langsam: {', '.join(slow_files)}")
     sys.exit(1 if failed else 0)
@@ -248,11 +281,13 @@ def main(argv):
             pass
     if len(argv) >= 2 and argv[1] == "setup" and len(argv) == 4 and argv[2].isdigit():
         return setup(int(argv[2]), argv[3])
+    if argv[1:2] == ["go"] and len(argv) <= 3:
+        return go(argv[2] if len(argv) == 3 else None)
     if len(argv) == 3 and argv[1] == "info" and argv[2].isdigit():
         return info(int(argv[2]))
     if len(argv) < 2 or not argv[1].isdigit():
         sys.exit(__doc__)
-    n, timeout, slow, make_zip, loose, uv = int(argv[1]), 60.0, 10.0, False, False, True
+    n, timeout, slow, make_zip, loose, uv, run_all = int(argv[1]), 60.0, 10.0, False, False, True, False
     rest, i = argv[2:], 0
     while i < len(rest):
         a = rest[i]
@@ -266,9 +301,11 @@ def main(argv):
             loose, i = True, i + 1
         elif a == "--no-validate":
             uv, i = False, i + 1
+        elif a == "--all":
+            run_all, i = True, i + 1
         else:
             sys.exit(__doc__)
-    run_level(n, timeout, slow, make_zip, loose, uv)
+    run_level(n, timeout, slow, make_zip, loose, uv, run_all)
 
 
 if __name__ == "__main__":

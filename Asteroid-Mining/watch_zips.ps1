@@ -1,16 +1,18 @@
-# Durchgehender Wächter: prüft alle 0,1 s den Downloads-Ordner und gibt für JEDE neue .zip genau eine Zeile (den Pfad) aus.
-# Läuft endlos (für das Monitor-Tool); beendet sich nie von selbst.
+# Durchgehender Waechter fuer das Monitor-Tool: gibt fuer JEDE neue .zip im Downloads-Ordner genau eine Zeile (den Pfad) aus.
+# Prueft alle 20 ms; sobald die Datei vollstaendig lesbar ist (Browser benennt .crdownload erst am Ende um), wird gemeldet.
 $dl = Join-Path $env:USERPROFILE "Downloads"
 $seen = @{}
-Get-ChildItem "$dl\*.zip" -ErrorAction SilentlyContinue | ForEach-Object { $seen[$_.FullName] = $true }
+foreach ($f in [IO.Directory]::GetFiles($dl, "*.zip")) { $seen[$f] = 1 }
 while ($true) {
-  foreach ($z in @(Get-ChildItem "$dl\*.zip" -ErrorAction SilentlyContinue)) {
-    if (-not $seen.ContainsKey($z.FullName)) {
-      $seen[$z.FullName] = $true
-      Start-Sleep -Seconds 2   # Download fertig schreiben lassen
-      [Console]::Out.WriteLine($z.FullName)
+  foreach ($f in [IO.Directory]::GetFiles($dl, "*.zip")) {
+    if (-not $seen.ContainsKey($f)) {
+      $seen[$f] = 1
+      for ($i = 0; $i -lt 200; $i++) {  # max. 5 s warten, bis die Datei freigegeben ist
+        try { $fs = [IO.File]::Open($f, 'Open', 'Read', 'None'); $fs.Close(); break } catch { Start-Sleep -Milliseconds 25 }
+      }
+      [Console]::Out.WriteLine($f)
       [Console]::Out.Flush()
     }
   }
-  Start-Sleep -Milliseconds 100
+  Start-Sleep -Milliseconds 20
 }

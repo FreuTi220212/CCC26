@@ -1,57 +1,47 @@
-# CCC (Cloudflight Coding Contest) - Python, Windows
+# CCC (Cloudflight Coding Contest) - Python + Java, Windows
 
-Ein Ordner pro Spiel (`Rock-Paper-Scissors/`, `Asteroid-Mining/`, `School-Magic-Money/`), Werkzeuge in `_template/`.
-Jedes Spiel hat eine eigene `CLAUDE.md` (Regeln, Input-Struktur, Log, Fehler). Bei Problemen dort nach ähnlichen Fehlern suchen.
-Ziel: jedes Level schnell und korrekt. Kurz antworten, nur bei echter Blockade nachfragen.
+Ein Ordner pro Spiel (`Rock-Paper-Scissors/`, `School-Magic-Money/`, `Asteroid-Mining/`, `Classic-Spaceship/`), Werkzeuge in `_template/`.
+Jedes Spiel hat eine eigene `CLAUDE.md` (Regeln, Input-Struktur, Fehler). Bei Problemen dort nach ähnlichen Fällen suchen.
 
-## Neues Spiel starten
-1. `powershell -File _template\new_game.ps1 <Name>` (Name aus der Aufgabe), dann `cd <Name>`.
-2. Wächter durchgehend von Start bis Ende: Monitor-Tool mit `powershell -NoProfile -File <Name>/watch_zips.ps1`
-   (timeout 30 min, bei Ablauf SOFORT neu starten). Er meldet jede neue .zip (Prüfung alle 0,1 s).
-3. Level 1: Ablauf unten. Die Spiel-`CLAUDE.md` laufend mit Regeln/Input-Struktur/Log füllen.
+## Prioritäten (in dieser Reihenfolge)
+1. Teilaufgaben (Level) präzise und SCHNELL lösen. Während eines Projekts weder dokumentieren noch committen.
+2. Erst NACH dem letzten Level: Spiel-`CLAUDE.md` schreiben (Regeln, Input je Level, Fehler/Zeitfresser), neue allgemeine Regeln hier ergänzen, EIN Commit.
+3. Antworten an den Nutzer minimal: pro Level 1 Zeile ("Level N fertig, Explorer offen") oder der Blocker. Keine Lösungsbeschreibung, Laufzeit oder Doku-Hinweise. Nur bei echter Blockade fragen.
+4. Explorer nur ÖFFNEN (`open_output.ps1 N`, öffnet nie doppelt), nie schließen: der Nutzer schließt selbst.
+5. Erst small 100 % grün, dann large (`run.py` überspringt large nach einem small-Fehler). Zeit nicht an large verschwenden.
 
 ## Ablauf pro Level
-1. Neues Zip gemeldet -> `close_output.ps1` -> `python run.py setup N "<zip>"` (entpackt flach, rendert PDF-Seiten
-   nach `levelN/pages/*.png`, zeigt Input-Größen, legt `levelN.py` an: Kopie des vorigen Levels, bei Level 1 das Template).
-2. ALLE PDF-Seiten als Bild ansehen (Regeln/Diagramme stehen oft nur als Bild, `pdftotext` ist unvollständig).
-   2-3 Sätze Zusammenfassung mit Format und Randfällen, nicht auf Antwort warten.
-3. Input-Größen ansehen (`python run.py info N`), Algorithmus danach wählen (Regel 2).
-4. `levelN.py` erweitern. Mehrere gültige Lösungen? ZUERST `validate(inp, out)` schreiben (Regel 3).
-5. `python run.py N` nach jeder Änderung: Beispiel, dann alle Inputs mit Laufzeit; Warnung ab 10 s.
-6. Fertig = Beispiel OK + alle Outputs + keine Langsam-Warnung. Dann `git add -A` und commit "<Spiel> Level N".
-7. `powershell -File open_output.ps1 N` (Explorer links, schließt alte Fenster), nur den Pfad melden.
-   Der Nutzer zieht alle `out_*.txt` auf die Seite. Danach auf das nächste Zip warten.
+0. Neues Spiel: `powershell -File _template\new_game.ps1 <Name>`, `cd <Name>`, Monitor-Tool mit `powershell -NoProfile -File <Name>/watch_zips.ps1` (timeout 30 min, bei Ablauf SOFORT neu starten). Läuft durchgehend bis Spielende, meldet jede neue .zip als Pfad.
+1. Zip gemeldet: `python run.py go "<Pfad>"` (Level-Nr. aus dem Zip, entpackt flach, rendert PDF -> `levelN/pages/p*.png`, zeigt Input-Größen, legt `levelN.py` an = Kopie des vorigen Levels).
+2. Seiten 2.. ansehen (Regeln, Format, Beispiele stehen oft NUR im Bild, `pdftotext` ist unvollständig/teils verschlüsselt). Nicht auf Antwort warten.
+3. Input-Größen/Limits ansehen (`go` zeigt sie), Algorithmus passend wählen (Tabelle unten).
+4. `levelN.py` erweitern (nicht neu schreiben), `solve(data)` rein. Mehrere gültige Lösungen/Limit/"Optimum"? ZUERST `validate(inp, out)` schreiben.
+5. `python run.py N` nach jeder Änderung. Fertig = Beispiel + small + large OK, nichts "LANGSAM" (>10 s).
+6. `powershell -File open_output.ps1 N`, dann auf das nächste Zip warten. Der Nutzer zieht die `out_*.txt` auf die Seite.
+
+## Aufgabentyp -> was funktioniert hat
+- Simulation/Summen/Tabellen: direkt. Große Beträge (1e9): größte Münze in Kopien, Rest per kleiner DP-Tabelle (Tausch-Argument).
+- "Generate…"/mehrere Lösungen: Validator per Simulation, nie exakter Vergleich.
+- Limit = Optimum (+1): die small-Limits zeigen die Zielgüte. Kleine Fälle per Brute-Force oder `scipy.optimize.milp` (ILP + Fluss-Konnektivität) exakt lösen, Struktur ablesen (Asteroid-Mining L5), dann DP/Formel.
+- Konstruktion mit exakten Anzahlen: ILP/DP, NIE Greedy/Zufall (RPS L5 kostete Stunden). Turnier/Baum: rückwärts denken, Bitmasken-DP.
+- Zeit-/Kinematikplanung (Classic-Spaceship L4-8): Dijkstra über (Position, Zustand) pro Achse; mit Hindernissen gewichtetes A* im vollen Zustand IN JAVA (`Planner*.java`, JDK 21): Gewichte 1.5 -> 2.5 -> 4, dann 1.25/1.0; Heuristik = BFS-Zugzahl (zulässig: Diagonale ohne Eckenprüfung); Zustände mit g+h > Limit verwerfen; bei Rechenabbruch GRÖSSERES Gewicht. Bewegte Hindernisse: Zeit in den Schlüssel, Sperrkarte je Tick.
+- Python-DP/Beam/Segmente für >1e6 Zustände ist verlorene Zeit (Level 7: ~3 h Python, 1 h Java). Nach 20 min ohne tragfähigen Ansatz in Python: Java.
 
 ## Plattform-Fakten
-- Dateien `in_level-N_X-name.txt` / `out_level-N_X-name.txt`, je Level Beispiel (`_0-example`) + small + large.
-  Beschreibung `level-N.pdf` (Folien), manchmal `sandbox-level-N.html` (Visualizer).
-- Output exakt wie im Beispiel-Output (Leerzeilen am Ende mit `od -c` prüfen). Keine Output-Zips (nur `--zip`).
-- Das Spiel steckt in einem Cross-Origin-iFrame: Upload per Browser-Tool unmöglich, der Nutzer lädt selbst hoch.
-  Browser des Nutzers: Brave. Nie selbst einloggen, nur nach ausdrücklichem Ja herunterladen/abgeben.
-- Browser-Start: Cookie-Dialog ablehnen, "How to Play" nach unten scrollen -> Close, oben "Download Level N".
-- Zips heißen oft `level-N (1).zip`. Gleiche Dateien wie ein früheres Level = Kopie, kein neues Level.
+- Dateien `in_level-N_X-name.txt` / `out_level-N_X-name.txt`, je Level Beispiel (`_0-example`) + small + large; `level-N.pdf` (Folien), manchmal `sandbox-level-N.html`.
+- Output exakt wie im Beispiel-Output (Leerzeile am Ende: `od -c`). Keine Output-Zips. Level gilt erst bei ALLEN Fällen einer Datei als bestanden.
+- Das Spiel steckt in einem Cross-Origin-iFrame: Upload nur durch den Nutzer. Browser: Brave. Nie selbst einloggen; Download-Klick nur auf ausdrückliche Bitte. Start: Cookie-Dialog ablehnen, "How to Play" nach unten scrollen -> Close.
+- Zips heißen oft `level-N (2).zip`; gleiche Dateien wie ein früheres Level = Kopie (Spiel wurde neu durchgespielt).
+- Unklare Konvention (Zeit, Sprung, Kollision)? An den Beispiel-Lösungen des PDFs alle Varianten durchprobieren; sonst Variante hochladen lassen. Die Plattform meldet pro Fall (Screenshot des ersten Fehlfalls) was falsch war.
 
-## Allgemeine Learnings
-1. Erst alle PDF-Seiten als Bild lesen, dann coden. Beispiel-Output nie hardcoden.
-2. Vor dem Coden small/large-Größen ansehen: large ist 10-1000x größer. Algorithmus danach wählen
-   (O(n^2) bei n=1e5 oder Beträge bis 1e9 brauchen Formel/DP/Tabelle), lieber iterativ als tief rekursiv.
-3. Mehrere gültige Lösungen ("Generate", "any", Limit): zuerst Validator (Simulation, Limit, Format), nicht exakt vergleichen.
-4. Steht im Input ein Limit/"Optimum": Limits der small-Datei verraten die Optimalität und den Zielwert.
-5. Zustandsraumsuche, die in Python zu langsam ist (Millionen Zustände): in Java auslagern (JDK 21 ist installiert, `javac`/`java` im PATH), Python ruft per subprocess auf. Gewichtetes A* + zulässige BFS-Heuristik. Bei Rechenlimit größere Gewichte probieren.
-5b. Konstruktion/Optimierung mit exakten Anzahlen: nicht Greedy/Zufall raten. Kleine Fälle per Brute-Force oder ILP
-   (`scipy.optimize.milp`, installiert) lösen, Struktur ablesen, dann Formel oder DP.
-6. Laufzeit: Kandidaten nach unterer Schranke sortieren, früh abbrechen, teure Checks nicht je Kandidat
-   über das ganze Raster. Jede Datei > 10 s ist ein Warnsignal.
-7. Nach jeder Änderung `python run.py N`. Level ist erst fertig mit allen Outputs. Danach committen.
-8. Folge-Level erweitern statt neu schreiben; `solve(data)` rein, Regeln in kleinen Funktionen.
-9. Gleicher Fehler 3-mal: Beschreibung neu lesen und Unklarheit benennen, nicht weiter raten.
-10. Python-Dateien nur mit Write/Edit schreiben, nie per Bash-Heredoc (`\n` wird zerstört -> SyntaxError).
-11. Windows: Explorer nur per PowerShell (`open_output.ps1`), Temp-Skripte in den Scratchpad (bash-`/tmp` ≠ Python-`/tmp`),
-    `PYTHONUTF8=1` und `\r\n` normalisieren (macht `run.py`).
-12. Der Wächter muss durchgehend laufen; Monitor läuft nach 30 min ab und wird sofort neu gestartet.
-13. Seite meldet falsch, Fehler "got 'import sys'" = Lösungsdatei statt Output hochgeladen. Sonst Fehlfall-Screenshot des Nutzers nutzen.
-14. Spielspezifisches nur in `<Spiel>/CLAUDE.md`. Am Spielende Log und Fehler dort ergänzen, allgemeine Regeln hier.
+## Fallen (jeweils real passiert)
+- Python-Quelltext nie per Bash-Heredoc/`python -` schreiben (`\n` wird zerstört -> SyntaxError), nur Write/Edit. Auch Java-Strings.
+- Bash-`/tmp` != Python-`/tmp`; Temp-Dateien in den Scratchpad. Hintergrundläufe mit Ausgabe puffern: Datei bleibt leer bis Ende.
+- Alte Hintergrundprozesse (Python/Java) belegen CPU: vor Messungen mit `Get-CimInstance Win32_Process` prüfen und beenden.
+- `return a, b if c else None` ist ein Tupel (Operator-Vorrang). Explorer nur per PowerShell. Zwei Wächter = doppelte Events.
+- Gewichtetes A* mit unzulässiger Heuristik schneidet gültige Lösungen weg (Level 7: 677 statt 441).
+- Validator nicht strenger als die Plattform bauen: er verwarf Lösungen, die die Plattform akzeptierte.
 
 ## Tools (`_template/`, spielunabhängig)
-`run.py` (setup/info/run, exakt oder `validate`, Laufzeit, Timeout, `--zip`), `level_template.py`, `open_output.ps1`,
-`close_output.ps1`, `watch_zips.ps1`, `new_game.ps1`. Verbesserungen in `_template` UND im aktiven Spiel pflegen.
+`run.py` (`go [zip]`, `setup N zip`, `info N`, `N [--timeout S --slow S --zip --loose --no-validate --all]`; exakt oder `validate`; small vor large), `level_template.py`, `open_output.ps1`, `watch_zips.ps1`, `new_game.ps1`. Abhängigkeiten: `pip install pymupdf scipy` (installiert), JDK 21 (`javac`/`java`).
+Verbesserungen in `_template` UND im aktiven Spiel pflegen.
