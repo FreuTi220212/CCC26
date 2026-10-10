@@ -1,6 +1,6 @@
 # CCC (Cloudflight Coding Contest) - Python + Java, Windows
 
-Ein Ordner pro Spiel (`Rock-Paper-Scissors/`, `School-Magic-Money/`, `Asteroid-Mining/`, `Classic-Spaceship/`), Werkzeuge in `_template/`.
+Ein Ordner pro Spiel (`Rock-Paper-Scissors/`, `School-Magic-Money/`, `Asteroid-Mining/`, `Classic-Spaceship/`, `Migratory-Birds/`), Werkzeuge in `_template/`.
 Jedes Spiel hat eine eigene `CLAUDE.md` (Regeln, Input-Struktur, Fehler). Bei Problemen dort nach ähnlichen Fällen suchen.
 
 ## Prioritäten (in dieser Reihenfolge)
@@ -26,6 +26,8 @@ Jedes Spiel hat eine eigene `CLAUDE.md` (Regeln, Input-Struktur, Fehler). Bei Pr
 - Konstruktion mit exakten Anzahlen: ILP/DP, NIE Greedy/Zufall (RPS L5 kostete Stunden). Turnier/Baum: rückwärts denken, Bitmasken-DP.
 - Zeit-/Kinematikplanung (Classic-Spaceship L4-8): Dijkstra über (Position, Zustand) pro Achse; mit Hindernissen gewichtetes A* im vollen Zustand IN JAVA (`Planner*.java`, JDK 21): Gewichte 1.5 -> 2.5 -> 4, dann 1.25/1.0; Heuristik = BFS-Zugzahl (zulässig: Diagonale ohne Eckenprüfung); Zustände mit g+h > Limit verwerfen; bei Rechenabbruch GRÖSSERES Gewicht. Bewegte Hindernisse: Zeit in den Schlüssel, Sperrkarte je Tick.
 - Python-DP/Beam/Segmente für >1e6 Zustände ist verlorene Zeit (Level 7: ~3 h Python, 1 h Java). Nach 20 min ohne tragfähigen Ansatz in Python: Java.
+
+- Daten/Prognose (Migratory-Birds): Wird 100 % verlangt, ist die Vorhersage deterministisch -> Struktur suchen statt Statistik: Tagessummen/Zeilen auf exakte Wiederholung oder Spiegelung gegen frühere Daten prüfen (L1-Abstand 0). Backtests täuschen; Plattform-Upload als Orakel, einfachste Variante zuerst. Zahlwörter und Einheitenfehler (°F) im CSV einplanen; große CSVs mit `np.loadtxt(StringIO)`.
 
 ## Plattform-Fakten
 - Dateien `in_level-N_X-name.txt` / `out_level-N_X-name.txt`, je Level Beispiel (`_0-example`) + small + large; `level-N.pdf` (Folien), manchmal `sandbox-level-N.html`.
