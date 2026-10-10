@@ -37,7 +37,8 @@ Ziel: jedes Level schnell und korrekt. Kurz antworten, nur bei echter Blockade n
    (O(n^2) bei n=1e5 oder Beträge bis 1e9 brauchen Formel/DP/Tabelle), lieber iterativ als tief rekursiv.
 3. Mehrere gültige Lösungen ("Generate", "any", Limit): zuerst Validator (Simulation, Limit, Format), nicht exakt vergleichen.
 4. Steht im Input ein Limit/"Optimum": Limits der small-Datei verraten die Optimalität und den Zielwert.
-5. Konstruktion/Optimierung mit exakten Anzahlen: nicht Greedy/Zufall raten. Kleine Fälle per Brute-Force oder ILP
+5. Zustandsraumsuche, die in Python zu langsam ist (Millionen Zustände): in Java auslagern (JDK 21 ist installiert, `javac`/`java` im PATH), Python ruft per subprocess auf. Gewichtetes A* + zulässige BFS-Heuristik. Bei Rechenlimit größere Gewichte probieren.
+5b. Konstruktion/Optimierung mit exakten Anzahlen: nicht Greedy/Zufall raten. Kleine Fälle per Brute-Force oder ILP
    (`scipy.optimize.milp`, installiert) lösen, Struktur ablesen, dann Formel oder DP.
 6. Laufzeit: Kandidaten nach unterer Schranke sortieren, früh abbrechen, teure Checks nicht je Kandidat
    über das ganze Raster. Jede Datei > 10 s ist ein Warnsignal.
