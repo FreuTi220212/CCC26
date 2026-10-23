@@ -88,12 +88,16 @@ def plan(price, reactions, targets):
 def plan_ilp(price, reactions, name, qty):
     """Exakt kostenminimal: x_r = Anzahl Ausfuehrungen, b_m = Zukaeufe; Bilanz je Molekuel >= Ziel; danach topologisch einsortieren."""
     import numpy as np
-    from scipy.optimize import LinearConstraint, milp
+    from scipy.optimize import Bounds, LinearConstraint, milp
     mols = sorted({m for e, p in reactions for m, _ in e + p} | set(price) | {name})
     mi = {m: i for i, m in enumerate(mols)}
     R, B = len(reactions), [m for m in mols if m in price]
     bi = {m: R + i for i, m in enumerate(B)}
-    A = np.zeros((len(mols), R + len(B)))
+    NB = [m for m in mols if m not in price]
+    ni = {m: i for i, m in enumerate(NB)}
+    nx = R + len(B)  # Variablen: x (R), b (|B|), y (R, Reaktion benutzt), lvl (|NB|, Stufe der nicht kaufbaren Molekuele)
+    ny, nl = nx + R, nx + R + len(NB)
+    A = np.zeros((len(mols), nl))
     for r, (e, p) in enumerate(reactions):
         for m, c in e:
             A[mi[m], r] -= c
@@ -103,10 +107,26 @@ def plan_ilp(price, reactions, name, qty):
         A[mi[m], bi[m]] = 1
     lo = np.zeros(len(mols))
     lo[mi[name]] = qty
-    c = np.array([0.0] * R + [float(price[m]) for m in B])
-    res = milp(c, constraints=LinearConstraint(A, lo, np.inf), integrality=np.ones(R + len(B)), bounds=(0, np.inf))
-    if not res.success:
+    big = qty * 60 + 60
+    rows, rlo, rhi = [], [], []
+    for r, (e, p) in enumerate(reactions):
+        row = np.zeros(nl)  # x_r <= big * y_r
+        row[r], row[nx + r] = -1, big
+        rows.append(row), rlo.append(0), rhi.append(np.inf)
+        for me, _ in e:
+            for mp, _ in p:
+                if me in ni and mp in ni and me != mp:  # benutzt: lvl[p] >= lvl[e] + 1 (verbietet Zyklen ohne Startbestand)
+                    row = np.zeros(nl)
+                    row[ny + ni[mp]], row[ny + ni[me]], row[nx + r] = 1, -1, -len(NB)
+                    rows.append(row), rlo.append(1 - len(NB)), rhi.append(np.inf)
+    c = np.array([0.0] * R + [float(price[m]) for m in B] + [0.0] * (R + len(NB)))
+    integ = np.concatenate([np.ones(nx + R), np.zeros(len(NB))])
+    ub = np.concatenate([np.full(nx, np.inf), np.ones(R), np.full(len(NB), float(len(NB)))])
+    res = milp(c, constraints=[LinearConstraint(A, lo, np.inf), LinearConstraint(np.array(rows), rlo, rhi)],
+               integrality=integ, bounds=Bounds(np.zeros(nl), ub), options={"time_limit": 20})
+    if res.x is None:
         return None
+    plan_ilp.last = res.fun
     count = [int(round(v)) for v in res.x[:R]]
     # Reihenfolge: Reaktion ausfuehren, sobald alle NICHT kaufbaren Edukte im Bestand sind (Kaufbares wird bei Bedarf gekauft).
     budget = {m: int(round(res.x[bi[m]])) for m in B}  # geplante Zukaeufe je kaufbarem Molekuel
@@ -117,18 +137,28 @@ def plan_ilp(price, reactions, name, qty):
     stock, out, left = {}, [], count[:]
     while any(left):
         pick = None
-        for allow_buy in (False, True):  # erst Reaktionen ohne Zukauf, dann mit Zukauf im Rahmen des geplanten Budgets
+        pending = {m for r in range(R) if left[r] for m, _ in reactions[r][1]}  # Molekuele, die noch erzeugt werden
+        for allow_buy in (0, 1, 2):  # erst ohne Zukauf, dann Zukauf nur fuer nicht mehr erzeugte Molekuele, dann im Budgetrahmen
             for r in range(R):
                 if not left[r]:
                     continue
                 d = deficit(r)
-                if not d or (allow_buy and all(m in budget and budget[m] >= v for m, v in d.items())):
+                if not d or (allow_buy and all(m in budget and budget[m] >= v and (allow_buy == 2 or m not in pending)
+                                               for m, v in d.items())):
                     pick = (r, d)
                     break
             if pick:
                 break
-        if pick is None:  # uebrig sind nur nicht ausfuehrbare Leerlauf-Zyklen (Kosten 0): weglassen, sofern das Ziel erreicht ist
-            break
+        if pick is None:  # Zyklus ohne Startbestand (die Bilanz allein sieht ihn nicht): billigsten Anschub zukaufen
+            options = []
+            for r in range(R):
+                d = deficit(r) if left[r] else None
+                if d and all(m in price for m in d):
+                    options.append((sum(price[m] * v for m, v in d.items()), r, d))
+            if not options:
+                break
+            _, r, d = min(options)
+            pick = (r, d)
         r, d = pick
         for m, v in d.items():
             budget[m] -= v
@@ -147,9 +177,10 @@ def solve(data):
     price, reactions, targets = parse(data)
     paragraphs = []
     for name, qty in targets:
+        greedy = plan(price, reactions, [(name, qty)])
         rs = plan_ilp(price, reactions, name, qty)
-        if rs is None:
-            rs = plan(price, reactions, [(name, qty)])
+        if rs is None or run_case(price, [parse_reaction(l) for l in rs])[0] >= run_case(price, [parse_reaction(l) for l in greedy])[0]:
+            rs = greedy  # die tatsaechlich billigere Reihenfolge nehmen
         paragraphs.append("\n".join(rs))
     return "\n\n".join(paragraphs) + "\n\n"  # Beispiel-Output endet mit Leerzeile
 
