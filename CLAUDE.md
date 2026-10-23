@@ -1,6 +1,6 @@
 # CCC (Cloudflight Coding Contest) - Python + Java, Windows
 
-Ein Ordner pro Spiel (`Rock-Paper-Scissors/`, `School-Magic-Money/`, `Asteroid-Mining/`, `Classic-Spaceship/`, `Migratory-Birds/`), Werkzeuge in `_template/`.
+Ein Ordner pro Spiel (`Rock-Paper-Scissors/`, `School-Magic-Money/`, `Asteroid-Mining/`, `Classic-Spaceship/`, `Migratory-Birds/`, `Chemistry-Lab/`), Werkzeuge in `_template/`.
 Jedes Spiel hat eine eigene `CLAUDE.md` (Regeln, Input-Struktur, Fehler). Bei Problemen dort nach ähnlichen Fällen suchen.
 
 ## Prioritäten (in dieser Reihenfolge)
@@ -28,6 +28,8 @@ Jedes Spiel hat eine eigene `CLAUDE.md` (Regeln, Input-Struktur, Fehler). Bei Pr
 - Python-DP/Beam/Segmente für >1e6 Zustände ist verlorene Zeit (Level 7: ~3 h Python, 1 h Java). Nach 20 min ohne tragfähigen Ansatz in Python: Java.
 
 - Daten/Prognose (Migratory-Birds): Wird 100 % verlangt, ist die Vorhersage deterministisch -> Struktur suchen statt Statistik: Tagessummen/Zeilen auf exakte Wiederholung oder Spiegelung gegen frühere Daten prüfen (L1-Abstand 0). Backtests täuschen; Plattform-Upload als Orakel, einfachste Variante zuerst. Zahlwörter und Einheitenfehler (°F) im CSV einplanen; große CSVs mit `np.loadtxt(StringIO)`.
+
+- Kosten-Optimierung mit Bestenliste (Chemistry-Lab L3): Score = Summe, je Fall unabhaengig. Sofort ILP + ausfuehrbare Reihenfolge per Simulation, nicht erst Greedy/lokale Suche. Bilanz-ILPs ignorieren Startbestaende (Katalysatoren/Kreislaeufe): Atom-/Startbestand-Bedingungen ergaenzen. Parallel auf allen Kernen je Fall rechnen, laufend "Minimum je Fall + Validator" in die Output-Datei mergen; beste Outputs sichern, bevor `run.py` neu startet (leert den Ordner).
 
 ## Plattform-Fakten
 - Dateien `in_level-N_X-name.txt` / `out_level-N_X-name.txt`, je Level Beispiel (`_0-example`) + small + large; `level-N.pdf` (Folien), manchmal `sandbox-level-N.html`.
